@@ -40,6 +40,7 @@ export default function SSLForm() {
       if (data.status === 'pending' && data.record) {
         setDnsRecord(data.record);
         setNextStep(data.nextStep);
+        console.log('Next step set:', data.nextStep);
         setMessage(data.message);
       } else {
         setDownloadUrl(data.downloadUrl);
@@ -47,6 +48,7 @@ export default function SSLForm() {
       }
     } catch (error) {
       setMessage(`Error: ${error.message}`);
+      console.error('Submit error:', error);
     }
   };
 
@@ -101,7 +103,7 @@ export default function SSLForm() {
       email,
     };
 
-    console.log('Sending continue request with body:', requestBody);
+    console.log('Sending continue request to /api/ssl/continue with body:', requestBody);
 
     try {
       const response = await fetch('/api/ssl/continue', {
@@ -112,7 +114,8 @@ export default function SSLForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(`Error: ${data.error}`);
+        setMessage(`Error: ${data.error || 'Failed to continue DNS-01 validation'}`);
+        console.error('Continue response error:', data);
         return;
       }
 
