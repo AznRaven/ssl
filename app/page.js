@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function SSLForm() {
   const [domain, setDomain] = useState('');
@@ -10,6 +10,8 @@ export default function SSLForm() {
   const [dnsRecord, setDnsRecord] = useState(null);
   const [nextStep, setNextStep] = useState(null);
   const [downloadUrl, setDownloadUrl] = useState('');
+  const [txtStatus, setTxtStatus] = useState(null);
+  const [isCheckingTxt, setIsCheckingTxt] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,6 +19,8 @@ export default function SSLForm() {
     setDnsRecord(null);
     setNextStep(null);
     setDownloadUrl('');
+    setTxtStatus(null);
+    setIsCheckingTxt(false);
 
     try {
       const response = await fetch('/api/ssl', {
@@ -44,6 +48,28 @@ export default function SSLForm() {
     }
   };
 
+  const checkTxtRecord = async () => {
+    setIsCheckingTxt(true);
+    try {
+      const response = await fetch('/api/ssl/check-txt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain }),
+      });
+      const data = await response.json();
+
+      if (data.status === 'found') {
+        setTxtStatus({ status: 'found', message: data.message, records: data.records });
+      } else {
+        setTxtStatus({ status: 'not-found', message: data.message });
+      }
+    } catch (error) {
+      setTxtStatus({ status: 'error', message: `Error checking TXT record: ${error.message}` });
+    } finally {
+      setIsCheckingTxt(false);
+    }
+  };
+
   const handleContinue = async () => {
     if (!nextStep) return;
 
@@ -62,12 +88,24 @@ export default function SSLForm() {
 
       setDnsRecord(null);
       setNextStep(null);
+      setTxtStatus(null);
       setDownloadUrl(data.downloadUrl);
       setMessage('Certificate generated successfully!');
     } catch (error) {
       setMessage(`Error: ${error.message}`);
     }
   };
+
+  // Auto-check TXT record periodically when dnsRecord is set
+  useEffect(() => {
+    if (!dnsRecord) return;
+
+    const interval = setInterval(() => {
+      checkTxtRecord();
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [dnsRecord]);
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -116,6 +154,10 @@ export default function SSLForm() {
                   HTTP-01 (requires DNS pointing to this server)
                 </span>
               </label>
+              <div className="text-center text-red-400">
+                <p>TYPE: CNAME</p>
+                <p>TARGET: cname.vercel-dns.com</p>
+              </div>
               <label className="flex items-center">
                 <input
                   type="radio"
@@ -125,9 +167,7 @@ export default function SSLForm() {
                   onChange={(e) => setChallengeType(e.target.value)}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                 />
-                <span className="ml-2 text-gray-700">
-                  DNS-01 (requires TXT record)
-                </span>
+                <span className="ml-2 text-gray-700">DNS-01 (requires TXT record)</span>
               </label>
             </div>
           </div>
@@ -159,11 +199,43 @@ export default function SSLForm() {
                   <strong>Value:</strong> {dnsRecord.value}
                 </p>
                 <p className="mt-2">
-                  After adding the TXT record, wait for DNS propagation (up to 5 minutes), then click below.
+                  After adding the TXT record, wait for DNS propagation (up to 5 minutes). Check the status below.
                 </p>
                 <button
+                  onClick={checkTxtRecord}
+                  disabled={isCheckingTxt}
+                  className={`mt-4 bg-gray-600 text-white font-medium py-2 px-4 rounded-md hover:bg-gray-700 transition-colors ${
+                    isCheckingTxt ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  {isCheckingTxt ? 'Checking...' : 'Check TXT Record'}
+                </button>
+                {txtStatus && (
+                  <div className="mt-4">
+                    <p
+                      className={
+                        txtStatus.status === 'found'
+                          ? 'text-green-700'
+                          : txtStatus.status === 'not-found'
+                          ? 'text-yellow-700'
+                          : 'text-red-700'
+                      }
+                    >
+                      <strong>Status:</strong> {txtStatus.message}
+                    </p>
+                    {txtStatus.records && (
+                      <p>
+                        <strong>Records:</strong> {txtStatus.records.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <button
                   onClick={handleContinue}
-                  className="mt-4 bg-blue-600 text-white font-medium py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                  disabled={txtStatus?.status !== 'found'}
+                  className={`mt-4 bg-blue-600 text-white font-medium py-2 px-4 rounded-md hover:bg-blue-700 transition-colors ${
+                    txtStatus?.status !== 'found' ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
                   Continue
                 </button>
