@@ -2,8 +2,13 @@ import acme from 'acme-client';
 import fs from 'fs/promises';
 import path from 'path';
 import JSZip from 'jszip';
+import { challengeStore } from '../../../middleware.js';
 
 const certDir = path.join(process.cwd(), 'public', 'certificates');
+const challengeDir = path.join(process.cwd(), 'public', '.well-known', 'acme-challenge');
+
+// Store challenge details in memory (for simplicity; use a DB for production)
+let challengeStore = {};
 
 function validatePem(pem, type) {
   const header = `-----BEGIN ${type}-----`;
@@ -50,6 +55,9 @@ export async function POST(req) {
       throw new Error('No HTTP-01 challenge available');
     }
 
+    // Store challenge details
+    challengeStore[challenge.token] = challenge.keyAuthorization;
+
     console.log('Completing HTTP-01 challenge');
     await client.completeChallenge(challenge);
     console.log('Waiting for challenge validation');
@@ -83,6 +91,9 @@ export async function POST(req) {
     await fs.writeFile(zipPath, zipContent);
 
     const downloadUrl = `/certificates/${path.basename(zipPath)}`;
+
+    // Clear challenge store
+    delete challengeStore[challenge.token];
 
     console.log('Certificate generated successfully');
     return new Response(

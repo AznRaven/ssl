@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 
 export default function SSLForm() {
-  const [domain, setDomain] = useState('');
-  const [email, setEmail] = useState('');
-  const [challengeType, setChallengeType] = useState('http-01');
-  const [message, setMessage] = useState('');
-  const [downloadUrl, setDownloadUrl] = useState('');
+  const [domain, setDomain] = useState("");
+  const [email, setEmail] = useState("");
+  const [challengeType, setChallengeType] = useState("http-01");
+  const [message, setMessage] = useState("");
+  const [downloadUrl, setDownloadUrl] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage('');
-    setDownloadUrl('');
+    setMessage("");
+    setDownloadUrl("");
 
     try {
-      const response = await fetch('/api/ssl', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/ssl", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain, email, challengeType }),
       });
       const data = await response.json();
@@ -28,7 +28,7 @@ export default function SSLForm() {
       }
 
       setDownloadUrl(data.downloadUrl);
-      setMessage('Certificate generated successfully!');
+      setMessage("Certificate generated successfully!");
     } catch (error) {
       setMessage(`Error: ${error.message}`);
     }
@@ -37,7 +37,9 @@ export default function SSLForm() {
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-lg p-6 max-w-xl w-full">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">Generate SSL Certificate</h1>
+        <h1 className="text-2xl font-bold text-gray-800 mb-6">
+          Generate SSL Certificate
+        </h1>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-gray-700 font-medium mb-2">
@@ -65,7 +67,7 @@ export default function SSLForm() {
               />
             </label>
           </div>
-          <div className="mb-6">
+          <div className="mb-6 text-black">
             <label className="block text-gray-700 font-medium mb-2">
               Challenge Type
               <select
@@ -76,9 +78,14 @@ export default function SSLForm() {
                 <option value="http-01">HTTP-01</option>
               </select>
             </label>
+            <div className="text-center">
+
             <p className="text-sm text-gray-600 mt-2">
-              HTTP-01 requires your domain to point to this server (e.g., CNAME to cname.vercel-dns.com).
+              HTTP-01 requires your domain to point to this server.
             </p>
+            <p>Type: CNAME</p>
+            <p>Target: cname.vercel-dns.com</p>
+            </div>
           </div>
           <button
             type="submit"
@@ -91,13 +98,15 @@ export default function SSLForm() {
         {message && (
           <div
             className={`mt-6 p-4 rounded-md ${
-              message.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+              message.includes("Error")
+                ? "bg-red-100 text-red-700"
+                : "bg-green-100 text-green-700"
             }`}
           >
             <p>{message}</p>
             {downloadUrl && (
               <p className="mt-2">
-                Download your certificate:{' '}
+                Download your certificate:{" "}
                 <a
                   href={downloadUrl}
                   download
