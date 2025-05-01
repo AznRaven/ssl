@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// In-memory challenge store (same as in route.js; ideally, use a shared module or DB)
+// In-memory challenge store (shared with route.js)
 const challengeStore = {};
 
 // Export for use in route.js

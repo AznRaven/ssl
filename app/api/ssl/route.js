@@ -7,9 +7,6 @@ import { challengeStore } from '../../../middleware.js';
 const certDir = path.join(process.cwd(), 'public', 'certificates');
 const challengeDir = path.join(process.cwd(), 'public', '.well-known', 'acme-challenge');
 
-// Store challenge details in memory (for simplicity; use a DB for production)
-let challengeStore = {};
-
 function validatePem(pem, type) {
   const header = `-----BEGIN ${type}-----`;
   const footer = `-----END ${type}-----`;
