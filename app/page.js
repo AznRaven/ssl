@@ -82,7 +82,7 @@ export default function SSLForm() {
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
                 className="mt-1 w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., p.aznraven.com"
+                placeholder="e.g., example.com"
                 required
               />
             </label>
@@ -95,7 +95,7 @@ export default function SSLForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="mt-1 w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., versatilias@gmail.com"
+                placeholder="e.g., example@gmail.com"
                 required
               />
             </label>
