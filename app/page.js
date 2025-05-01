@@ -12,6 +12,7 @@ export default function SSLForm() {
   const [downloadUrl, setDownloadUrl] = useState('');
   const [txtStatus, setTxtStatus] = useState(null);
   const [isCheckingTxt, setIsCheckingTxt] = useState(false);
+  const [countdown, setCountdown] = useState(30); // Countdown for auto-check (30 seconds)
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,6 +22,7 @@ export default function SSLForm() {
     setDownloadUrl('');
     setTxtStatus(null);
     setIsCheckingTxt(false);
+    setCountdown(30);
 
     try {
       const response = await fetch('/api/ssl', {
@@ -54,30 +56,58 @@ export default function SSLForm() {
       const response = await fetch('/api/ssl/check-txt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain }),
+        body: JSON.stringify({ domain, expectedValue: dnsRecord?.value }),
       });
       const data = await response.json();
 
       if (data.status === 'found') {
-        setTxtStatus({ status: 'found', message: data.message, records: data.records });
+        setTxtStatus({
+          status: 'found',
+          message: data.message,
+          records: data.records,
+        });
+      } else if (data.status === 'mismatch') {
+        setTxtStatus({
+          status: 'mismatch',
+          message: data.message,
+          records: data.records,
+        });
       } else {
         setTxtStatus({ status: 'not-found', message: data.message });
       }
     } catch (error) {
-      setTxtStatus({ status: 'error', message: `Error checking TXT record: ${error.message}` });
+      setTxtStatus({
+        status: 'error',
+        message: `Error checking TXT record: ${error.message}`,
+      });
     } finally {
       setIsCheckingTxt(false);
+      setCountdown(30); // Reset countdown after check
     }
   };
 
   const handleContinue = async () => {
-    if (!nextStep) return;
+    if (!nextStep || !nextStep.body) {
+      setMessage('Error: Next step configuration is missing');
+      console.error('Next step is invalid:', nextStep);
+      return;
+    }
+
+    const requestBody = {
+      action: nextStep.body.action,
+      orderUrl: nextStep.body.orderUrl,
+      challengeUrl: nextStep.body.challengeUrl,
+      domain,
+      email,
+    };
+
+    console.log('Sending continue request with body:', requestBody);
 
     try {
-      const response = await fetch(nextStep.url, {
-        method: nextStep.method,
+      const response = await fetch('/api/ssl/continue', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nextStep.body),
+        body: JSON.stringify(requestBody),
       });
       const data = await response.json();
 
@@ -93,19 +123,39 @@ export default function SSLForm() {
       setMessage('Certificate generated successfully!');
     } catch (error) {
       setMessage(`Error: ${error.message}`);
+      console.error('Continue request failed:', error);
     }
   };
 
-  // Auto-check TXT record periodically when dnsRecord is set
+  // Auto-check TXT record and manage countdown
   useEffect(() => {
     if (!dnsRecord) return;
 
-    const interval = setInterval(() => {
+    // Auto-check every 30 seconds
+    const checkInterval = setInterval(() => {
       checkTxtRecord();
-    }, 30000); // Check every 30 seconds
+    }, 30000);
 
-    return () => clearInterval(interval);
+    // Countdown timer (updates every second)
+    const countdownInterval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) return 30; // Reset to 30 when reaching 0
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(checkInterval);
+      clearInterval(countdownInterval);
+    };
   }, [dnsRecord]);
+
+  // Auto-continue when TXT record matches
+  useEffect(() => {
+    if (txtStatus?.status === 'found') {
+      handleContinue();
+    }
+  }, [txtStatus]);
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -199,8 +249,15 @@ export default function SSLForm() {
                   <strong>Value:</strong> {dnsRecord.value}
                 </p>
                 <p className="mt-2">
-                  After adding the TXT record, wait for DNS propagation (up to 5 minutes). Check the status below.
+                  After adding the TXT record, wait for DNS propagation (up to 5 minutes). We are
+                  checking automatically.
                 </p>
+                {dnsRecord && (
+                  <p className="mt-2 font-medium">
+                    Please wait while we check for the TXT record match. Next check in {countdown}{' '}
+                    seconds...
+                  </p>
+                )}
                 <button
                   onClick={checkTxtRecord}
                   disabled={isCheckingTxt}
@@ -208,7 +265,7 @@ export default function SSLForm() {
                     isCheckingTxt ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                 >
-                  {isCheckingTxt ? 'Checking...' : 'Check TXT Record'}
+                  {isCheckingTxt ? 'Checking...' : 'Check TXT Record Now'}
                 </button>
                 {txtStatus && (
                   <div className="mt-4">
@@ -216,6 +273,8 @@ export default function SSLForm() {
                       className={
                         txtStatus.status === 'found'
                           ? 'text-green-700'
+                          : txtStatus.status === 'mismatch'
+                          ? 'text-yellow-700'
                           : txtStatus.status === 'not-found'
                           ? 'text-yellow-700'
                           : 'text-red-700'
